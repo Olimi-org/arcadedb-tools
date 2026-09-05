@@ -1,0 +1,16 @@
+[package]
+name = "arcadedb-record-macros"
+version = "0.1.0"
+description = "Procedural macros for arcadedb-protocol: derive TryFrom<&GrpcRecord> and FromGrpcValue for model structs."
+license.workspace = true
+edition.workspace = true
+keywords = ["arcadedb", "grpc", "serde"]
+categories = ["database", "development-tools::procedural-macro-helpers"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["derive", "parsing"] }

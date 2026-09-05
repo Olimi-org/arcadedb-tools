@@ -1,0 +1,7 @@
+[workspace]
+resolver = "2"
+members = ["crates/arcadedb-protocol", "crates/arcadedb-migrate", "crates/arcadedb-record-macros"]
+
+[workspace.package]
+license = "MIT"
+edition = "2021"

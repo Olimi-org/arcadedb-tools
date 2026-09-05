@@ -1,0 +1,40 @@
+[package]
+name = "arcadedb-migrate"
+version = "0.2.0"
+description = "Declarative + override schema migration manager for ArcadeDB, with a `migrate` binary."
+keywords = ["arcadedb", "database", "schema", "migration", "atlas"]
+categories = ["database", "command-line-utilities"]
+license.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+# Enables integration tests that hit a live ArcadeDB container.
+# Run with: cargo test -p arcadedb-migrate --features integration
+integration = []
+
+[lib]
+name = "arcadedb_migrate"
+path = "src/lib.rs"
+
+[[bin]]
+name = "arcadedb-migrate"
+path = "src/bin/migrate.rs"
+
+[dependencies]
+arcadedb-protocol = { path = "../arcadedb-protocol", version = "0.3.0" }
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tracing = "0.1"
+
+# Binary-only deps (CLI + logging init).
+dotenvy = "0.15"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+chrono = "0.4.45"
+
+[dev-dependencies]
+tempfile = "3"
