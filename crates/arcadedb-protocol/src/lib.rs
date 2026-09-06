@@ -78,7 +78,7 @@ pub mod scan;
 pub mod stream;
 pub mod testutil;
 
-pub use arcadedb_record_macros::{RecordDecode, RecordEncode};
+pub use arcadedb_record_macros::{RecordDecode, RecordEncode, sql};
 pub use client::{
     consume_stream, ArcadeDbClient, DatabaseClient, QueryResult, QueryResultBatch, StreamSummary,
     Transaction, TxCommands,

@@ -67,6 +67,29 @@ use syn::{
     Type,
 };
 
+mod sql;
+
+/// `sql!` — write the statement as a literal, get a syntax check for free.
+///
+/// ```ignore
+/// use arcadedb_protocol::{params, sql};
+///
+/// client.execute_with_values(
+///     sql!("UPDATE users SET status = :status UPSERT WHERE user_id = :user_id"),
+///     params! { status: "active", user_id },
+/// ).await?;
+/// ```
+///
+/// Catches at compile time: UPDATE clause order, unbalanced delimiters,
+/// reserved-word placeholders (`:after`), pasted scripts, `DELETE` without
+/// `WHERE`, `INSERT` without `INTO`, `CREATE EDGE` without `FROM`/`TO`.
+/// Expands to the `&str` unchanged. Bound params are `params!`'s job, not
+/// this macro's; non-literal statements stay plain strings.
+#[proc_macro]
+pub fn sql(input: TokenStream) -> TokenStream {
+    sql::expand_sql(input)
+}
+
 /// `#[derive(RecordDecode)]`.
 // `serde` is registered here too (registration is additive across derives —
 // serde's own Deserialize/Serialize both register it), so decode-only DTOs
