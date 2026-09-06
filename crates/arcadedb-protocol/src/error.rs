@@ -92,7 +92,7 @@ pub enum ArcadeDbError {
     /// A read that was expected to return at least one row returned none
     /// ([`fetch_one`](crate::ArcadeDbClient::fetch_one),
     /// [`QueryResult::one`](crate::QueryResult::one),
-    /// [`create_and_return`](crate::ArcadeDbClient::create_and_return)).
+    /// [`upsert_returning`](crate::ArcadeDbClient::upsert_returning)).
     /// Distinct from `Rpc` — the transport and the command both succeeded;
     /// the empty result *is* the answer.
     #[error("no rows returned by {operation} (expected at least one: {detail})")]

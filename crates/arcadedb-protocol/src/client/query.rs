@@ -240,9 +240,8 @@ impl ArcadeDbClient {
     ///   carry an index.
     ///
     /// `Ok(None)` when the statement matched nothing (`RETURN AFTER` on a
-    /// zero-row UPDATE); use [`create_and_return`](Self::create_and_return)
-    /// or [`upsert_returning`](Self::upsert_returning) for the strict
-    /// one-row contract.
+    /// zero-row UPDATE); use [`upsert_returning`](Self::upsert_returning)
+    /// for the strict one-row contract.
     ///
     /// Replaces the execute→extract→decode template at every returning-write
     /// call site.
@@ -284,29 +283,6 @@ impl ArcadeDbClient {
             .await?
             .ok_or_else(|| ArcadeDbError::NotFound {
                 operation: "upsert_returning".into(),
-                detail: command.into(),
-            })
-    }
-
-    /// Typed create that returns the stored record (schema defaults
-    /// included) instead of only the rid — a plain `INSERT INTO … SET …`
-    /// whose response row is decoded (INSERT returns the stored record via
-    /// `return_rows`; see [`write_returning_optional`](Self::write_returning_optional)
-    /// for the grammar notes). Retires the
-    /// create-then-`lookup_by_rid` read-back pair.
-    pub async fn create_and_return<T>(
-        &self,
-        database: &str,
-        command: &str,
-        parameters: impl Into<crate::encode::Params>,
-    ) -> Result<T>
-    where
-        T: for<'r> TryFrom<&'r GrpcRecord, Error = RecordDecodeError>,
-    {
-        self.write_returning_optional(database, command, parameters)
-            .await?
-            .ok_or_else(|| ArcadeDbError::NotFound {
-                operation: "create_and_return".into(),
                 detail: command.into(),
             })
     }

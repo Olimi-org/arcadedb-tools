@@ -294,21 +294,6 @@ impl DatabaseClient {
         self.client.count_type(&self.database, type_name).await
     }
 
-    /// Typed create returning the stored record (bound database) — plain
-    /// `INSERT … SET` whose response row is decoded.
-    pub async fn create_and_return<T>(
-        &self,
-        command: &str,
-        parameters: impl Into<crate::encode::Params>,
-    ) -> Result<T>
-    where
-        T: for<'r> TryFrom<&'r GrpcRecord, Error = crate::record::RecordDecodeError>,
-    {
-        self.client
-            .create_and_return(&self.database, command, parameters)
-            .await
-    }
-
     /// Retrying transaction closure on the bound database.
     pub async fn run_transaction<T, F, Fut>(
         &self,
