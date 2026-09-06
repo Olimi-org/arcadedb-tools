@@ -605,6 +605,17 @@ impl SetClause {
         self
     }
 
+    /// Set a column to a SERVER-SIDE expression (`count = count + 1`,
+    /// `checked_at = sysdate()`) — the increment/anchor forms that have no
+    /// client-side value to bind. Both halves are caller-owned SQL: `col`
+    /// must be a plain schema identifier (same contract as
+    /// [`set`](Self::set), which likewise interpolates it), `expr` is
+    /// inserted verbatim — never data.
+    pub fn set_expr(mut self, col: &str, expr: &str) -> Self {
+        self.frags.push(format!("{col} = {expr}"));
+        self
+    }
+
     /// Register a param WITHOUT emitting a fragment — for values referenced
     /// from elsewhere in the statement. Composes with
     /// [`sql`](Self::sql)/[`into_params`](Self::into_params).
