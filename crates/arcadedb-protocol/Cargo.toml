@@ -2,6 +2,9 @@
 name = "arcadedb-protocol"
 version = "0.3.0"
 description = "A lightweight gRPC client for ArcadeDB: tonic stubs, a typed record-decode path (RecordDecode derive), and a serde_json bridge."
+repository = "https://github.com/Olimi-org/arcadedb-tools"
+homepage = "https://github.com/Olimi-org/arcadedb-tools"
+documentation = "https://docs.rs/arcadedb-protocol"
 keywords = ["arcadedb", "grpc", "database", "graph", "vector"]
 categories = ["database", "api-bindings"]
 license.workspace = true

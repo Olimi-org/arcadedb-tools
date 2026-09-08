@@ -2,6 +2,9 @@
 name = "arcadedb-migrate"
 version = "0.2.0"
 description = "Declarative + override schema migration manager for ArcadeDB, with a `migrate` binary."
+repository = "https://github.com/Olimi-org/arcadedb-tools"
+homepage = "https://github.com/Olimi-org/arcadedb-tools"
+documentation = "https://docs.rs/arcadedb-migrate"
 keywords = ["arcadedb", "database", "schema", "migration", "atlas"]
 categories = ["database", "command-line-utilities"]
 license.workspace = true
