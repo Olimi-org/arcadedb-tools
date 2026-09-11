@@ -1,6 +1,6 @@
 [package]
 name = "arcadedb-protocol"
-version = "0.3.0"
+version = "0.3.1"
 description = "A lightweight gRPC client for ArcadeDB: tonic stubs, a typed record-decode path (RecordDecode derive), and a serde_json bridge."
 repository = "https://github.com/Olimi-org/arcadedb-tools"
 homepage = "https://github.com/Olimi-org/arcadedb-tools"
