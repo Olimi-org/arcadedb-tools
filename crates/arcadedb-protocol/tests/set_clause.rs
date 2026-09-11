@@ -221,3 +221,18 @@ fn append_binds_integers_as_integers() {
 fn chrono_now() -> impl IntoGrpcValue {
     arcadedb_protocol::__private::timestamp_v(chrono::Utc::now())
 }
+
+#[test]
+fn apply_if_applies_some_and_skips_none() {
+    // Multi-call conditional step: append + bind ride one apply_if; the
+    // None leg contributes no fragment and no param.
+    let c = SetClause::new()
+        .apply_if(Some("red"), |c, v| c.append("labels", v))
+        .apply_if(None::<String>, |c, v| c.set("note", v))
+        .apply_if(Some("k1"), |c, k| c.bind("key", k));
+    assert_eq!(c.sql(), "labels = labels || :labels__append");
+    let params = c.into_params().0;
+    assert_eq!(params.len(), 2);
+    assert!(params.contains_key("labels__append"));
+    assert!(params.contains_key("key"));
+}

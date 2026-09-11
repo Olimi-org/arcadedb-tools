@@ -194,3 +194,19 @@ fn params_compose_with_set_clause_maps() {
     assert!(merged.0.contains_key("labels"));
     assert!(merged.0.contains_key("item_key"));
 }
+
+#[test]
+fn apply_if_applies_some_and_skips_none() {
+    // The conditional-composition form: a bind+filter pair rides one
+    // apply_if; None legs vanish without leaving fragments OR params.
+    let f = FilterClause::new()
+        .eq("item_id", 7i64)
+        .apply_if(Some(75i32), |f, min| {
+            f.bind("band_min", min).filter("reviews >= :band_min")
+        })
+        .apply_if(None::<i32>, |f, max| f.lte("reviews", max));
+    assert_eq!(f.sql(), "item_id = :item_id AND reviews >= :band_min");
+    let params = f.into_params().0;
+    assert_eq!(grpc_value_to_json(&params["band_min"]), Value::from(75));
+    assert!(!params.contains_key("reviews__lte"));
+}

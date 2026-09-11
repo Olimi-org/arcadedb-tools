@@ -624,6 +624,26 @@ impl SetClause {
         self
     }
 
+    /// Apply a multi-call step only when `option` is `Some` — the
+    /// conditional-composition form for write shapes that need more than
+    /// one builder call (e.g. [`append`](Self::append) + [`bind`](Self::bind)
+    /// together). `None` passes the clause through untouched. Read-side
+    /// twin: [`FilterClause::apply_if`](crate::FilterClause::apply_if).
+    ///
+    /// ```
+    /// # use arcadedb_protocol::SetClause;
+    /// let clause = SetClause::new()
+    ///     .apply_if(Some("red"), |c, v| c.append("labels", v))
+    ///     .apply_if(None::<String>, |c, v| c.set("note", v));
+    /// assert_eq!(clause.sql(), "labels = labels || :labels__append");
+    /// ```
+    pub fn apply_if<T>(self, option: Option<T>, f: impl FnOnce(Self, T) -> Self) -> Self {
+        match option {
+            Some(v) => f(self, v),
+            None => self,
+        }
+    }
+
     /// Server-side list append: emits `col = col || :{col}__append` with the
     /// element bound as a one-element list. One roundtrip, no
     /// read-merge-write window, works on a NULL column

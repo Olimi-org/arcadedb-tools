@@ -104,6 +104,30 @@ impl FilterClause {
         }
     }
 
+    /// Apply a multi-call step only when `option` is `Some` — the
+    /// conditional-composition form for fragments that need more than one
+    /// builder call (a [`bind`](Self::bind) + [`filter`](Self::filter)
+    /// pair, or an operator chosen at runtime). `None` passes the clause
+    /// through untouched, so a ladder of `apply_if`s reads as a
+    /// declarative optional-predicate list:
+    ///
+    /// ```
+    /// # use arcadedb_protocol::FilterClause;
+    /// let filter = FilterClause::new()
+    ///     .apply_if(Some(75), |f, min| {
+    ///         f.bind("band_min", min).filter("reviews >= :band_min")
+    ///     })
+    ///     .apply_if(None::<i32>, |f, max| f.lte("reviews", max));
+    /// assert_eq!(filter.sql(), "reviews >= :band_min");
+    /// assert!(filter.clone().into_params().0.contains_key("band_min"));
+    /// ```
+    pub fn apply_if<T>(self, option: Option<T>, f: impl FnOnce(Self, T) -> Self) -> Self {
+        match option {
+            Some(v) => f(self, v),
+            None => self,
+        }
+    }
+
     /// Register a param WITHOUT emitting a fragment — for placeholders
     /// referenced elsewhere in the statement.
     pub fn bind(mut self, name: &str, value: impl IntoGrpcValue) -> Self {
