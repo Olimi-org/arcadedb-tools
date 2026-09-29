@@ -1,6 +1,6 @@
 [package]
 name = "arcadedb-protocol"
-version = "0.3.2"
+version = "0.3.3"
 description = "A lightweight gRPC client for ArcadeDB: tonic stubs, a typed record-decode path (RecordDecode derive), and a serde_json bridge."
 repository = "https://github.com/Olimi-org/arcadedb-tools"
 homepage = "https://github.com/Olimi-org/arcadedb-tools"
@@ -30,7 +30,7 @@ rust_decimal = { version = "1", optional = true, default-features = false }
 rayon = { version = "1", optional = true }
 thiserror = "2"
 serde = { version = "1", optional = true, features = ["derive"] }
-arcadedb-record-macros = { path = "../arcadedb-record-macros", version = "0.1.0" }
+arcadedb-record-macros = { path = "../arcadedb-record-macros", version = "0.2.0" }
 # chrono is used by the decode bridge to render protobuf Timestamp → RFC3339.
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 http = "1"

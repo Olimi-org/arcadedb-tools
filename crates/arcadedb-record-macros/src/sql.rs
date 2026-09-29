@@ -251,42 +251,51 @@ fn check_single_statement(cleaned: &str, errors: &mut Vec<String>) {
     }
 }
 
-/// ArcadeDB UPDATE clause order: `UPDATE … SET … [UPSERT] [RETURN
-/// BEFORE|AFTER] WHERE …`. Only applies when the statement starts with
-/// UPDATE; every other statement gets balance/placeholder checks only.
+/// ArcadeDB UPDATE clause order: `UPDATE … SET|REMOVE|CONTENT|MERGE …
+/// [UPSERT] [RETURN BEFORE|AFTER|COUNT [expr]] [WHERE …]` — the write clause
+/// can be `SET`, `REMOVE`, `CONTENT`, or `MERGE` (docs grammar), and every
+/// following bracket is optional and independent (the docs' RETURN examples
+/// run without UPSERT and without WHERE, on record-ID targets). Only applies
+/// when the statement starts with UPDATE; every other statement gets
+/// balance/placeholder checks only.
 fn check_update_order(w: &[String], errors: &mut Vec<String>) {
     let pos = |kw: &str| w.iter().position(|x| x == kw);
     let set = pos("SET");
+    let write = ["SET", "REMOVE", "CONTENT", "MERGE"]
+        .iter()
+        .filter_map(|kw| pos(kw))
+        .min();
     let upsert = pos("UPSERT");
     let ret = pos("RETURN");
     let wher = pos("WHERE");
 
-    if set.is_none() {
-        errors.push("UPDATE without SET — nothing to write".to_string());
+    let Some(write) = write else {
+        errors.push("UPDATE without SET/REMOVE/CONTENT/MERGE — nothing to write".to_string());
         return;
-    }
-    let set = set.unwrap();
+    };
 
     // `SET` with no body (`UPDATE t SET WHERE …`) — a hand-written empty.
+    // (REMOVE/CONTENT/MERGE carry their operand in different shapes.)
     let next_clause = [upsert, ret, wher]
         .into_iter()
         .flatten()
         .min()
         .unwrap_or(w.len());
-    if next_clause == set + 1 {
+    if set == Some(write) && next_clause == write + 1 {
         errors.push("UPDATE with empty SET — no columns to write".to_string());
     }
 
     if let Some(wh) = wher {
-        if wh < set {
+        if wh < write {
             errors.push(
-                "WHERE before SET — ArcadeDB order is UPDATE … SET … WHERE …".to_string(),
+                "WHERE before SET — ArcadeDB order is UPDATE … SET|REMOVE|CONTENT|MERGE … WHERE …"
+                    .to_string(),
             );
         }
     }
 
     if let Some(u) = upsert {
-        if u < set {
+        if u < write {
             errors.push("UPSERT before SET — ArcadeDB order is UPDATE … SET … UPSERT WHERE …".to_string());
         }
         match wher {
@@ -302,16 +311,14 @@ fn check_update_order(w: &[String], errors: &mut Vec<String>) {
 
     if let Some(r) = ret {
         let after = w.get(r + 1).map(String::as_str);
-        if after != Some("BEFORE") && after != Some("AFTER") {
-            errors.push("RETURN must be followed by BEFORE or AFTER".to_string());
+        if after != Some("BEFORE") && after != Some("AFTER") && after != Some("COUNT") {
+            errors.push("RETURN must be followed by BEFORE, AFTER, or COUNT".to_string());
         }
-        if upsert.is_none() {
+        if r < write {
             errors.push(
-                "RETURN without UPSERT — RETURN BEFORE|AFTER belongs to the UPSERT shape (`… UPSERT RETURN AFTER WHERE …`)".to_string(),
+                "RETURN before SET — ArcadeDB order is … [UPSERT] RETURN [AFTER|BEFORE|COUNT] [WHERE …]"
+                    .to_string(),
             );
-        }
-        if r < set {
-            errors.push("RETURN before SET — ArcadeDB order is … UPSERT RETURN AFTER WHERE …".to_string());
         }
         if let Some(u) = upsert {
             if r < u {
@@ -320,13 +327,17 @@ fn check_update_order(w: &[String], errors: &mut Vec<String>) {
                 );
             }
         }
-        match wher {
-            Some(wh) if r < wh => {}
-            Some(_) => errors.push(
-                "RETURN AFTER at the end — it sits BETWEEN UPSERT and WHERE (`… UPSERT RETURN AFTER WHERE …`)".to_string(),
-            ),
-            None => errors.push("RETURN without WHERE — the RETURN clause needs its predicate".to_string()),
+        if let Some(wh) = wher {
+            if r > wh {
+                errors.push(
+                    "RETURN after WHERE — ArcadeDB order is … [UPSERT] RETURN [AFTER|BEFORE|COUNT] WHERE …"
+                        .to_string(),
+                );
+            }
         }
+        // No WHERE is valid: the docs' own examples return on a record-ID
+        // target (`UPDATE #7:0 SET gender='male' RETURN AFTER @rid`), and
+        // `RETURN COUNT` documents the whole-type update as the default.
     }
 }
 
@@ -399,7 +410,7 @@ mod tests {
     }
 
     #[test]
-    fn accepts_the_three_update_shapes() {
+    fn accepts_the_update_shapes() {
         assert!(ok("UPDATE users SET status = :status WHERE user_id = :user_id"));
         assert!(ok(
             "UPDATE users SET status = :status, score = :score UPSERT WHERE user_id = :user_id"
@@ -407,6 +418,9 @@ mod tests {
         assert!(ok(
             "UPDATE users SET status = :status UPSERT RETURN AFTER WHERE user_id = :user_id"
         ));
+        // RETURN BEFORE|AFTER is valid on a plain UPDATE too — the engine
+        // returns the (pre/post) image of every row the WHERE matched.
+        assert!(ok("UPDATE users SET status = :status RETURN AFTER WHERE user_id = :user_id"));
         assert!(ok("SELECT FROM orders WHERE user_id IN :ids"));
         assert!(ok("SELECT * FROM orders WHERE total > 0 ORDER BY total DESC"));
     }
@@ -420,12 +434,82 @@ mod tests {
         );
         let errs = validate("UPDATE users SET status = :s UPSERT WHERE user_id = :x RETURN AFTER");
         assert!(
-            errs.iter().any(|e| e.contains("RETURN AFTER at the end")),
+            errs.iter().any(|e| e.contains("RETURN after WHERE")),
             "unexpected: {errs:?}"
         );
         let errs = validate("UPDATE users SET status = :s UPSERT RETURN AFTER");
         assert!(
             errs.iter().any(|e| e.contains("without WHERE")),
+            "unexpected: {errs:?}"
+        );
+    }
+
+    #[test]
+    fn return_without_where_is_valid_per_spec() {
+        // Docs grammar: `[UPSERT]` and `[RETURN …]` are independent optional
+        // clauses, and the docs' RETURN examples target a record ID — no
+        // WHERE anywhere in the statement.
+        assert!(ok("UPDATE #7:0 SET gender = 'male' RETURN AFTER @rid"));
+        assert!(ok("UPDATE #7:0 SET gender = 'male' RETURN AFTER @this"));
+        assert!(ok("UPDATE #7:0 SET gender = 'male' RETURN AFTER"));
+        assert!(ok("UPDATE #7:0 SET gender = 'male' RETURN BEFORE"));
+        // RETURN with a returning-expression (docs: $current.exclude(…)).
+        assert!(ok(
+            "UPDATE #7:0 SET gender = 'male' RETURN AFTER $current.exclude('really_big_field')"
+        ));
+    }
+
+    #[test]
+    fn return_count_is_a_valid_operator_per_spec() {
+        // COUNT is a documented return operator — in fact the default one.
+        assert!(ok("UPDATE users SET status = :s RETURN COUNT WHERE user_id = :c"));
+        // Full documented order with UPSERT: SET … UPSERT RETURN … WHERE …
+        assert!(ok("UPDATE users SET status = :s UPSERT RETURN COUNT WHERE user_id = :c"));
+        assert!(ok("UPDATE users SET status = :s RETURN BEFORE WHERE user_id = :c"));
+    }
+
+    #[test]
+    fn return_still_must_sit_between_upsert_and_where() {
+        // RETURN after WHERE is still a clause-order trap.
+        let errs = validate("UPDATE users SET status = :s WHERE user_id = :c RETURN AFTER");
+        assert!(
+            errs.iter().any(|e| e.contains("RETURN after WHERE")),
+            "unexpected: {errs:?}"
+        );
+        // …and it must follow UPSERT when both are present.
+        let errs = validate("UPDATE users SET status = :s RETURN AFTER UPSERT WHERE user_id = :c");
+        assert!(
+            errs.iter().any(|e| e.contains("RETURN before UPSERT")),
+            "unexpected: {errs:?}"
+        );
+        // RETURN still needs one of the documented operators.
+        let errs = validate("UPDATE users SET status = :s RETURN @rid WHERE user_id = :c");
+        assert!(
+            errs.iter().any(|e| e.contains("BEFORE, AFTER, or COUNT")),
+            "unexpected: {errs:?}"
+        );
+    }
+
+    #[test]
+    fn remove_content_merge_are_valid_write_clauses_per_spec() {
+        // REMOVE — a field/property, or a collection element (docs examples).
+        assert!(ok("UPDATE Account REMOVE nick WHERE nick IS NOT NULL"));
+        assert!(ok("UPDATE #12:0 REMOVE addresses = 'Foo'"));
+        // CONTENT / MERGE — whole-record JSON, no SET clause in the statement.
+        assert!(ok("UPDATE #87:0 CONTENT { \"nick\": \"Luca\" }"));
+        assert!(ok(
+            "UPDATE Profile MERGE { \"settings\": { \"theme\": \"dark\" } } RETURN AFTER"
+        ));
+        // Clause order is still enforced relative to the write clause.
+        let errs = validate("UPDATE t RETURN AFTER CONTENT { }");
+        assert!(
+            errs.iter().any(|e| e.contains("RETURN before SET")),
+            "unexpected: {errs:?}"
+        );
+        // An UPDATE with nothing to write at all is still an error.
+        let errs = validate("UPDATE t WHERE b = :b");
+        assert!(
+            errs.iter().any(|e| e.contains("nothing to write")),
             "unexpected: {errs:?}"
         );
     }
@@ -438,13 +522,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_return_without_upsert_and_misordered_clauses() {
-        // RETURN belongs to the UPSERT shape only.
-        let errs = validate("UPDATE t SET a = :a RETURN AFTER WHERE b = :b");
-        assert!(
-            errs.iter().any(|e| e.contains("RETURN without UPSERT")),
-            "unexpected: {errs:?}"
-        );
+    fn rejects_misordered_clauses() {
         // WHERE before SET is never valid.
         let errs = validate("UPDATE t WHERE b = :b SET a = :a");
         assert!(

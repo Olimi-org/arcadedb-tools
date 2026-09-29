@@ -1,6 +1,6 @@
 [package]
 name = "arcadedb-record-macros"
-version = "0.1.0"
+version = "0.2.0"
 description = "Procedural macros for arcadedb-protocol: derive TryFrom<&GrpcRecord> and FromGrpcValue for model structs."
 repository = "https://github.com/Olimi-org/arcadedb-tools"
 homepage = "https://github.com/Olimi-org/arcadedb-tools"

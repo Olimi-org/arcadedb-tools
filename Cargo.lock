@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "arcadedb-protocol"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "arcadedb-record-macros",
  "chrono",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "arcadedb-record-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
